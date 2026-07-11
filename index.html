@@ -867,6 +867,37 @@ function buildPlanFloor(k, p){
 }
 Object.entries(PLANS).forEach(([k,p])=>buildPlanFloor(k,p));
 
+// ---- exterior windows (glass panes with sill + header) from windows.json ----
+const planWindows = {};   // level key -> THREE.Group
+const glassMat = new THREE.MeshStandardMaterial({color:'#bcd6e8', roughness:.08, metalness:.0, transparent:true, opacity:.34});
+const SILL_H = 2.4, HEAD_H = 6.9;   // glass runs sill..header; wall below and above
+fetch('windows.json').then(r=>r.json()).then(WIN=>{
+  Object.entries(WIN).forEach(([k, rects])=>{
+    const p = PLANS[k]; if(!p) return;
+    const grp = new THREE.Group();
+    rects.forEach(([x0,y0,x1,y1])=>{
+      const A = pxToPlan(p, x0, y0), B = pxToPlan(p, x1, y1);
+      const cx=(A[0]+B[0])/2, cz=(A[1]+B[1])/2;
+      let w=Math.abs(B[0]-A[0])+0.6, d=Math.abs(B[1]-A[1])+0.6;
+      w=Math.max(w,1.0); d=Math.max(d,1.0);
+      // glass
+      const glass=new THREE.Mesh(new THREE.BoxGeometry(w, HEAD_H-SILL_H, d), glassMat);
+      glass.position.set(cx, SLAB+(SILL_H+HEAD_H)/2, cz);
+      grp.add(glass);
+      // sill (below) + header (above), opaque wall color
+      const sill=new THREE.Mesh(new THREE.BoxGeometry(w, SILL_H, d), imgWallMat);
+      sill.position.set(cx, SLAB+SILL_H/2, cz); sill.castShadow=sill.receiveShadow=true;
+      const head=new THREE.Mesh(new THREE.BoxGeometry(w, WALLH_IMG-HEAD_H, d), imgWallMat);
+      head.position.set(cx, SLAB+(HEAD_H+WALLH_IMG)/2, cz); head.castShadow=head.receiveShadow=true;
+      grp.add(sill); grp.add(head);
+    });
+    grp.visible = false;
+    levelGroups[p.level].add(grp);
+    planWindows[k] = grp;
+  });
+  if(overlayOn) setOverlay(true);
+});
+
 // hand-traced structure hides entirely in overlay; the plan drawing + its
 // extruded walls become the model, so it matches the floorplan exactly.
 const handMats = ()=>[wallMat, wallMat2, railMat, stepMat, brickMat, ...Object.values(fxMat)];
@@ -875,6 +906,7 @@ function setOverlay(on){
   overlayOn = on;
   Object.values(planMeshes).forEach(o=>o.mesh.visible = on && levelGroups[o.cfg.level].visible);
   Object.entries(planWalls).forEach(([k,inst])=>{ inst.visible = on && levelGroups[PLANS[k].level].visible; });
+  Object.entries(planWindows).forEach(([k,g])=>{ g.visible = on && levelGroups[PLANS[k].level].visible; });
   slabMeshes.forEach(s=>s.visible = !on);
   handMats().forEach(m=>{ m.transparent = on || m.transparent; m.opacity = on?0:1; m.depthWrite = !on; });
   edgeMat.opacity = on ? 0 : 0.35;   // hide the traced walls' edge outlines in overlay
