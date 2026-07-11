@@ -877,6 +877,7 @@ function setOverlay(on){
   Object.entries(planWalls).forEach(([k,inst])=>{ inst.visible = on && levelGroups[PLANS[k].level].visible; });
   slabMeshes.forEach(s=>s.visible = !on);
   handMats().forEach(m=>{ m.transparent = on || m.transparent; m.opacity = on?0:1; m.depthWrite = !on; });
+  edgeMat.opacity = on ? 0 : 0.35;   // hide the traced walls' edge outlines in overlay
   // the plan drawing carries its own labels, so hide the traced ones in overlay
   const lbOn = document.getElementById('labels').checked;
   labelRenderer.domElement.style.display = (on || !lbOn) ? 'none' : '';
