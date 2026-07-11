@@ -801,6 +801,7 @@ FIXTURES.forEach(f=>{
 
 // ---- actual listing floorplans, laid onto the floor plates ----
 const texLoader = new THREE.TextureLoader();
+const AV = '?v=10';   // asset version — bump when plan images / masks change (cache-bust)
 const PLANS = {
   // scales calibrated from each drawing's own printed room dimensions
   // (upper 0.0305, main 0.0673, lower 0.069 ft/px), aspect preserved
@@ -810,8 +811,11 @@ const PLANS = {
 };
 const planMeshes = {};
 const planWalls = {};          // instanced walls extruded from each plan's wall mask
+const planRails = {};          // low railings along deck outer (woods-facing) edges
 const WALLH_IMG = 9;           // uniform wall height for the image-derived model
+const RAIL_H = 3.0;            // deck railing height
 const imgWallMat = new THREE.MeshStandardMaterial({color:'#eae0cc', roughness:.9});
+const railWoodMat = new THREE.MeshStandardMaterial({color:'#8a6243', roughness:.85});
 
 // image pixel (px,py) -> plan coords, using the SAME mapping as the textured plane
 function pxToPlan(p, px, py){
@@ -821,7 +825,7 @@ function pxToPlan(p, px, py){
 
 function buildPlanFloor(k, p){
   // textured drawing on the floor plate
-  const tex = texLoader.load(p.file);
+  const tex = texLoader.load(p.file+AV);
   tex.colorSpace = THREE.SRGBColorSpace;
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(p.w, p.h),
@@ -839,7 +843,7 @@ function buildPlanFloor(k, p){
 
   // walls extruded from the plan's own wall lines
   const img = new Image();
-  img.src = p.file.replace('plan-','wallmask-');
+  img.src = p.file.replace('plan-','wallmask-')+AV;
   img.onload = ()=>{
     const gw=img.width, gh=img.height;
     const cv=document.createElement('canvas'); cv.width=gw; cv.height=gh;
@@ -864,6 +868,30 @@ function buildPlanFloor(k, p){
     planWalls[k] = inst;
     if(overlayOn) setOverlay(true);
   };
+
+  // deck outer edges: low railings instead of full-height walls
+  const rimg = new Image();
+  rimg.src = p.file.replace('plan-','railmask-')+AV;
+  rimg.onload = ()=>{
+    const gw=rimg.width, gh=rimg.height;
+    const cv=document.createElement('canvas'); cv.width=gw; cv.height=gh;
+    const ctx=cv.getContext('2d'); ctx.drawImage(rimg,0,0);
+    const data=ctx.getImageData(0,0,gw,gh).data;
+    const F=p.imgW/gw, cellW=(F/p.imgW)*p.w, cellH=(F/p.imgH)*p.h;
+    const cells=[];
+    for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ if(data[(r*gw+c)*4]>128) cells.push([c,r]); }
+    if(!cells.length){ planRails[k]=null; return; }
+    const geo=new THREE.BoxGeometry(cellW*1.4, RAIL_H, cellH*1.4);
+    const inst=new THREE.InstancedMesh(geo, railWoodMat, cells.length);
+    inst.castShadow=inst.receiveShadow=true;
+    const mtx=new THREE.Matrix4();
+    cells.forEach(([c,r],i)=>{ const [X,Y]=pxToPlan(p,(c+0.5)*F,(r+0.5)*F); mtx.makeTranslation(X, SLAB+RAIL_H/2, Y); inst.setMatrixAt(i,mtx); });
+    inst.instanceMatrix.needsUpdate=true;
+    inst.visible=false;
+    levelGroups[p.level].add(inst);
+    planRails[k]=inst;
+    if(overlayOn) setOverlay(true);
+  };
 }
 Object.entries(PLANS).forEach(([k,p])=>buildPlanFloor(k,p));
 
@@ -871,7 +899,7 @@ Object.entries(PLANS).forEach(([k,p])=>buildPlanFloor(k,p));
 const planWindows = {};   // level key -> THREE.Group
 const glassMat = new THREE.MeshStandardMaterial({color:'#bcd6e8', roughness:.08, metalness:.0, transparent:true, opacity:.34});
 const SILL_H = 2.4, HEAD_H = 6.9;   // glass runs sill..header; wall below and above
-fetch('windows.json').then(r=>r.json()).then(WIN=>{
+fetch('windows.json'+AV).then(r=>r.json()).then(WIN=>{
   Object.entries(WIN).forEach(([k, rects])=>{
     const p = PLANS[k]; if(!p) return;
     const grp = new THREE.Group();
@@ -906,6 +934,7 @@ function setOverlay(on){
   overlayOn = on;
   Object.values(planMeshes).forEach(o=>o.mesh.visible = on && levelGroups[o.cfg.level].visible);
   Object.entries(planWalls).forEach(([k,inst])=>{ inst.visible = on && levelGroups[PLANS[k].level].visible; });
+  Object.entries(planRails).forEach(([k,inst])=>{ if(inst) inst.visible = on && levelGroups[PLANS[k].level].visible; });
   Object.entries(planWindows).forEach(([k,g])=>{ g.visible = on && levelGroups[PLANS[k].level].visible; });
   slabMeshes.forEach(s=>s.visible = !on);
   handMats().forEach(m=>{ m.transparent = on || m.transparent; m.opacity = on?0:1; m.depthWrite = !on; });
