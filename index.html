@@ -816,6 +816,11 @@ const WALLH_IMG = 9;           // uniform wall height for the image-derived mode
 const RAIL_H = 3.0;            // deck railing height
 const imgWallMat = new THREE.MeshStandardMaterial({color:'#eae0cc', roughness:.9});
 const railWoodMat = new THREE.MeshStandardMaterial({color:'#8a6243', roughness:.85});
+// the rotunda is a glass stair tower, not a solid drum: walls within ROT_R of
+// its center render as glass panels instead of solid extruded walls.
+const rotGlassMat = new THREE.MeshStandardMaterial({color:'#bcd6e8', roughness:.08, transparent:true, opacity:.26});
+const ROT_C = [-0.41, -6.6], ROT_R = 7.2;   // rotunda center (plan ft) + radius
+const planRotGlass = {};
 
 // image pixel (px,py) -> plan coords, using the SAME mapping as the textured plane
 function pxToPlan(p, px, py){
@@ -851,17 +856,24 @@ function buildPlanFloor(k, p){
     const data=ctx.getImageData(0,0,gw,gh).data;
     const F = p.imgW/gw;                       // pixels per grid cell
     const cellW=(F/p.imgW)*p.w, cellH=(F/p.imgH)*p.h;
-    const cells=[];
-    for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ if(data[(r*gw+c)*4] > 128) cells.push([c,r]); }
+    const cells=[], gcells=[];               // solid-wall cells vs rotunda-glass cells
+    const hasRot = (p.level===0 || p.level===1);
+    for(let r=0;r<gh;r++) for(let c=0;c<gw;c++){ if(data[(r*gw+c)*4] > 128){
+      const [X,Y] = pxToPlan(p, (c+0.5)*F, (r+0.5)*F);
+      if(hasRot && Math.hypot(X-ROT_C[0], Y-ROT_C[1]) < ROT_R) gcells.push([X,Y]);
+      else cells.push([X,Y]);
+    }}
     const geo = new THREE.BoxGeometry(cellW*1.5, WALLH_IMG, cellH*1.5);
     const inst = new THREE.InstancedMesh(geo, imgWallMat, cells.length);
     inst.castShadow = inst.receiveShadow = true;
     const mtx = new THREE.Matrix4();
-    cells.forEach(([c,r],i)=>{
-      const [X,Y] = pxToPlan(p, (c+0.5)*F, (r+0.5)*F);
-      mtx.makeTranslation(X, SLAB+WALLH_IMG/2, Y);
-      inst.setMatrixAt(i, mtx);
-    });
+    cells.forEach(([X,Y],i)=>{ mtx.makeTranslation(X, SLAB+WALLH_IMG/2, Y); inst.setMatrixAt(i, mtx); });
+    if(gcells.length){                        // rotunda glass curtain wall
+      const gi = new THREE.InstancedMesh(new THREE.BoxGeometry(cellW*1.4, WALLH_IMG, cellH*1.4), rotGlassMat, gcells.length);
+      gcells.forEach(([X,Y],i)=>{ mtx.makeTranslation(X, SLAB+WALLH_IMG/2, Y); gi.setMatrixAt(i, mtx); });
+      gi.instanceMatrix.needsUpdate = true; gi.visible = false;
+      levelGroups[p.level].add(gi); planRotGlass[k] = gi;
+    }
     inst.instanceMatrix.needsUpdate = true;
     inst.visible = false;
     levelGroups[p.level].add(inst);
@@ -976,6 +988,7 @@ function setOverlay(on){
   overlayOn = on;
   Object.values(planMeshes).forEach(o=>o.mesh.visible = on && levelGroups[o.cfg.level].visible);
   Object.entries(planWalls).forEach(([k,inst])=>{ inst.visible = on && levelGroups[PLANS[k].level].visible; });
+  Object.entries(planRotGlass).forEach(([k,inst])=>{ inst.visible = on && levelGroups[PLANS[k].level].visible; });
   Object.entries(planRails).forEach(([k,inst])=>{ if(inst) inst.visible = on && levelGroups[PLANS[k].level].visible; });
   Object.entries(planWindows).forEach(([k,g])=>{ g.visible = on && levelGroups[PLANS[k].level].visible; });
   planStairs.forEach(([g,lvl])=>{ g.visible = on && levelGroups[lvl].visible; });
