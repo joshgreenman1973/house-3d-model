@@ -69,6 +69,14 @@
   }
   .viewbtns button:hover{color:var(--ink);border-color:var(--ink-dim)}
 
+  /* ---------- zoom buttons ---------- */
+  #zoomctl{position:absolute;left:18px;top:50%;transform:translateY(-50%);
+    display:flex;flex-direction:column;gap:6px;z-index:11}
+  #zoomctl button{width:40px;height:40px;font-size:22px;line-height:1;
+    color:var(--ink);background:var(--panel);border:1px solid var(--line);
+    cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.4);transition:all .15s}
+  #zoomctl button:hover{border-color:var(--accent);color:var(--accent)}
+
   /* ---------- furniture palette ---------- */
   #palette{
     position:absolute;top:70px;right:18px;z-index:10;
@@ -179,6 +187,10 @@
 </head>
 <body>
 <div id="scene"></div>
+<div id="zoomctl">
+  <button id="zin" title="Zoom in" aria-label="Zoom in">+</button>
+  <button id="zout" title="Zoom out" aria-label="Zoom out">&minus;</button>
+</div>
 
 <div id="titleblock">
   <div class="kicker">Sheet A-3 · Massing model</div>
@@ -470,6 +482,13 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.maxPolarAngle = Math.PI/2 - 0.02;
+
+// +/- zoom buttons (dolly toward/away from the look-at point)
+function dolly(f){ const off=camera.position.clone().sub(controls.target);
+  const d=Math.max(3, Math.min(700, off.length()*f));
+  camera.position.copy(controls.target).add(off.setLength(d)); controls.update(); }
+document.getElementById('zin').onclick=()=>dolly(0.8);
+document.getElementById('zout').onclick=()=>dolly(1/0.8);
 
 scene.add(new THREE.HemisphereLight('#dfe6ee', '#3a352b', 0.75));
 const sun = new THREE.DirectionalLight('#ffe9c4', 1.6);
