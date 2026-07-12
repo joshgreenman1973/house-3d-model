@@ -976,8 +976,8 @@ function spiralStair(centerPx, level, rad){
   }
   grp.visible=false; levelGroups[level].add(grp); planStairs.push([grp, level]);
 }
-straightFlight([1010,1195,1075,1315], 0, +1);   // "Stairs Down" box: rises lower->main (in lower; shows through main hole)
-straightFlight([1010,1330,1075,1435], 1, +1);   // "Stairs Up"   box: rises main->upper (in main)
+straightFlight([1010,1195,1075,1315], 0, -1);   // "Stairs Down" box: top (main) at the north doorway, descends south to lower
+straightFlight([1010,1330,1075,1435], 1, -1);   // "Stairs Up"   box: bottom (main) at south, ascends north to upper
 spiralStair([755,670], 0, 2.6);                 // rotunda spiral: lower->main (shows through main rotunda hole)
 
 // hand-traced structure hides entirely in overlay; the plan drawing + its
