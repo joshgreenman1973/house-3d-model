@@ -149,7 +149,7 @@
       <button id="labelbtn" class="on" title="Labels on pieces (L)">Labels</button>
       <button id="fitbtn" title="Fit floor in view (F)">Fit</button>
       <button id="zoomout" title="Zoom out">−</button><input type="range" id="zoomsl" min="0" max="1000" value="300" title="Zoom"><button id="zoomin" title="Zoom in">+</button>
-      <span class="brand" id="zoomlbl" style="font-size:var(--t-micro);min-width:54px"></span>
+      <span id="zoomlbl" style="font-size:var(--t-micro);color:var(--ink2);min-width:64px;font-variant-numeric:tabular-nums"></span>
       <div class="sep"></div>
       <select id="roomsel" title="Zoom to a room and dim the rest (Esc clears)"><option value="">Whole floor</option></select>
       <div class="sep"></div>
@@ -178,7 +178,7 @@
         <button id="rot15r">↻ 15°</button>
       </div>
       <div class="angle"><span>Angle</span><input type="number" id="i-angle" step="1"><span>°</span>
-        <button id="wingbtn" title="Set to the angle of the bedroom / garage wing">Wing 32°</button></div>
+        <button id="wingbtn" title="Set to the angle of the bedroom / garage wing">Wing 24°</button></div>
       <div class="gaps" id="gaps">
         <div class="c"></div><div><span>Top</span><em id="g0">–</em></div><div class="c"></div>
         <div><span>Left</span><em id="g3">–</em></div><div class="c" id="gcenter"></div><div><span>Right</span><em id="g1">–</em></div>
@@ -254,25 +254,60 @@ const PLANS = {
   1:{file:'plan-main.png',  mask:'wallmask-main.png',  imgW:1474, imgH:1686, w:99.2, h:113.5, cx:-1.62, cy:5.04, name:'Main level'},
   2:{file:'plan-upper.png', mask:'wallmask-upper.png', imgW:1336, imgH:1664, w:40.7, h:50.8,  cx:11.6, cy:22.0,  name:'Upper level'},
 };
-const WING_DEG = 32;   // the bedroom / garage wing sits about 32° off the main block
+const WING_DEG = 24;   // the bedroom / garage wing sits 24° off the main block (measured from the drawing's wall pixels)
 
-// Room labels the listing's photo markers sat on top of. Re-lettered here at
-// the marker position (image pixels) so they read cleanly. Dims are the
-// listing's own; "?" is a digit the marker ate.
-const RELABEL = {
-  0:[ {px:895, py:889, n:'Library', d:'15\'9" × 24\'4"'},
-      {px:1027,py:996, n:'Half bath', d:'4\'7" × ?'},
-      {px:703, py:653, n:'Stairs (up)', d:''},
-      {px:508, py:536, n:'Workspace', d:'24\'4" × 26\'10"'} ],
-  1:[ {px:914, py:909, n:'Dining room', d:'15\'10" × 20\'1"'},
-      {px:826, py:1110,n:'Bathroom', d:'13\'8" × 5\'11"'},
-      {px:1138,py:1127,n:'Kitchen', d:'15\'0" × 15\'9"'} ],
-  2:[]
+// Every label the listing printed, re-lettered by the planner. The plan images had all
+// their text painted out (the seller's photo markers sat on half of it), so these are
+// drawn on the canvas at the original positions (image pixels). Dims are the listing's
+// own; "?" is a digit a marker had eaten. `wing` rooms sit at WING_DEG.
+const LABELS = {
+  0:[ {px:280, py:351, n:'Garage',      d:'26\'10" × 34\'6"', wing:true},
+      {px:462, py:290, n:'Storage',     d:'7\'9" × 12\'3"',   wing:true},
+      {px:511, py:535, n:'Workspace',   d:'24\'4" × 26\'10"', wing:true},
+      {px:705, py:650, n:'Stairs (up)', tag:true},
+      {px:925, py:684, n:'Fireplace',   tag:true},
+      {px:885, py:889, n:'Library',     d:'15\'9" × 24\'4"'},
+      {px:1022,py:990, n:'Half bath',   d:'4\'7" × ?', small:true},
+      {px:1142,py:1030,n:'Laundry room',d:'18\'5" × 8\'7"'},
+      {px:938, py:1105,n:'Storage',     d:'7\'8" × 6\'2"', small:true},
+      {px:1036,py:1186,n:'Closet',      tag:true},
+      {px:857, py:1205,n:'Storage',     d:'15\'9" × 18\'2"'},
+      {px:975, py:1262,n:'Storage',     d:'2\'1" × 8\'5"', rot:-90, small:true, noroom:true},
+      {px:1036,py:1262,n:'Stairs (up)', tag:true},
+      {px:1141,py:1337,n:'Game room',   d:'18\'5" × 36\'3"'},
+      {px:1135,py:1588,n:'Fireplace',   tag:true} ],
+  1:[ {px:267, py:278, n:'Primary bathroom', d:'?\'5" × 17\'10"', wing:true},
+      {px:413, py:252, n:'Sauna',            d:'5\'5" × 9\'11"', wing:true, small:true},
+      {px:500, py:290, n:'Primary bedroom',  d:'9\'6" × 10\'2"', wing:true, small:true},
+      {px:202, py:443, n:'Primary bedroom',  d:'12\'11" × 13\'0"', wing:true},
+      {px:474, py:496, n:'Primary bedroom',  d:'30\'0" × 27\'8"', wing:true},
+      {px:676, py:470, n:'Fireplace',        tag:true, rot:66},
+      {px:750, py:660, n:'Stairs (down)',    tag:true},
+      {px:881, py:910, n:'Dining room',      d:'15\'10" × 20\'1"'},
+      {px:828, py:1109,n:'Bathroom',         d:'13\'8" × 5\'11"'},
+      {px:1122,py:1126,n:'Kitchen',          d:'15\'0" × 15\'9"'},
+      {px:773, py:1178,n:'Closet', tag:true}, {px:840, py:1178,n:'Closet', tag:true}, {px:905, py:1178,n:'Closet', tag:true},
+      {px:1027,py:1230,n:'Stairs (down)',    tag:true},
+      {px:1027,py:1298,n:'Stairs (up)',      tag:true},
+      {px:869, py:1297,n:'Sitting room',     d:'18\'1" × 13\'4"'},
+      {px:836, py:1432,n:'Entry',            tag:true},
+      {px:1119,py:1443,n:'Living room',      d:'15\'9" × 26\'4"'},
+      {px:1111,py:1622,n:'Fireplace',        tag:true} ],
+  2:[ {px:272, py:169, n:'Closet',        d:'6\'9" × 3\'1"', small:true},
+      {px:479, py:418, n:'Bedroom',       d:'17\'6" × 22\'4"'},
+      {px:325, py:729, n:'Bathroom',      d:'13\'5" × 6\'3"'},
+      {px:325, py:934, n:'Bathroom',      d:'13\'5" × 5\'11"'},
+      {px:1065,py:922, n:'Open to below', tag:true},
+      {px:443, py:1092,n:'Closet',        d:'9\'6" × 2\'8"', small:true},
+      {px:1021,py:1262,n:'Bonus room',    d:'8\'8" × 9\'4"'},
+      {px:798, py:1327,n:'Stairs (down)', tag:true},
+      {px:446, py:1342,n:'Bedroom',       d:'17\'6" × 16\'9"'} ]
 };
-
-// Room outlines (plan feet), traced for the 3D model from the listing drawings.
-// Good enough to frame a room; not a survey.
-const ROOMS = {"0":[{"n":"Library","dims":"15'9\" × 24'4\"","poly":[[0,0],[15.75,0],[15.75,24.3],[0,24.3]]},{"n":"Foyer","dims":"","poly":[[-3.5,-5.6],[1.5,-5.6],[1.5,0],[-3.5,0]]},{"n":"Half bath","dims":"","poly":[[16,16.9],[20.6,16.9],[20.6,20.6],[16,20.6]]},{"n":"Laundry","dims":"18'5\" × 8'7\"","poly":[[15.8,20.6],[34.2,20.6],[34.2,29.2],[15.8,29.2]]},{"n":"Storage","dims":"7'8\" × 6'2\"","poly":[[8,24.3],[15.7,24.3],[15.7,30.6],[8,30.6]]},{"n":"Storage","dims":"15'9\" × 18'2\"","poly":[[-2,30.6],[13.75,30.6],[13.75,48.8],[-2,48.8]]},{"n":"Closet","dims":"","poly":[[15.8,29.2],[20.2,29.2],[20.2,32.3],[15.8,32.3]]},{"n":"Stairs","dims":"","poly":[[15.8,32.3],[20.2,32.3],[20.2,39.3],[15.8,39.3]]},{"n":"Game room","dims":"18'5\" × 36'3\"","poly":[[20.2,29.2],[34.2,29.2],[34.2,65.5],[20.2,65.5]]},{"n":"Covered deck","dims":"6'5\" × 45'10\"","poly":[[34.2,19.8],[40.6,19.8],[40.6,65.6],[34.2,65.6]]},{"n":"Garage","dims":"26'10\" × 34'6\"","poly":[[-81.11,-26.11],[-58.38,-40.31],[-40.1,-11.05],[-62.83,3.15]]},{"n":"Storage","dims":"7'9\" × 12'3\"","poly":[[-58.38,-40.31],[-51.81,-44.42],[-45.32,-34.03],[-51.89,-29.92]]},{"n":"Workspace","dims":"24'4\" × 26'10\"","poly":[[-41.63,-10.1],[-21.02,-22.98],[-6.82,-0.25],[-27.43,12.63]]},{"n":"Hall","dims":"","poly":[[-12.54,-9.41],[-8.56,-11.9],[-4.32,-5.12],[-8.3,-2.62]]}],"1":[{"n":"Dining room","dims":"15'10\" × 20'1\"","poly":[[0,0],[15.8,0],[15.8,20.1],[0,20.1]]},{"n":"Screened porch","dims":"15'9\" × 12'2\"","poly":[[15.8,4],[31.55,4],[31.55,16.2],[15.8,16.2]]},{"n":"Kitchen","dims":"15'0\" × 15'9\"","poly":[[16,16.4],[31.55,16.4],[31.55,32.3],[16,32.3]]},{"n":"Bathroom","dims":"13'8\" × 5'11\"","poly":[[-2,20.1],[11.7,20.1],[11.7,26],[-2,26]]},{"n":"Closets","dims":"","poly":[[-2,26],[11.7,26],[11.7,29.2],[-2,29.2]]},{"n":"Sitting room","dims":"18'1\" × 13'4\"","poly":[[-2,29.2],[16,29.2],[16,42.5],[-2,42.5]]},{"n":"Stairs","dims":"","poly":[[16,32.3],[20.3,32.3],[20.3,39.3],[16,39.3]]},{"n":"Hall","dims":"","poly":[[20.3,32.3],[31.55,32.3],[31.55,41.9],[20.3,41.9]]},{"n":"Living room","dims":"15'9\" × 26'4\"","poly":[[16,41.9],[31.75,41.9],[31.75,68.2],[16,68.2]]},{"n":"Deck","dims":"13'7\" × 31'2\"","poly":[[31.75,20.9],[45.35,20.9],[45.35,52.1],[31.75,52.1]]},{"n":"Foyer","dims":"","poly":[[-3.5,-5.6],[1.5,-5.6],[1.5,0],[-3.5,0]]},{"n":"Primary bath","dims":"~14' × 12'","poly":[[-48.83,-19.75],[-36.96,-27.17],[-30.6,-16.99],[-42.48,-9.57]]},{"n":"Sauna","dims":"5'5\" × 9'11\"","poly":[[-36.96,-27.17],[-32.38,-30.03],[-27.14,-21.63],[-31.72,-18.77]]},{"n":"Bedroom","dims":"9'6\" × 10'2\"","poly":[[-31.43,-28.5],[-23.37,-33.54],[-17.97,-24.89],[-26.02,-19.85]]},{"n":"Bedroom","dims":"12'11\" × 13'0\"","poly":[[-53.42,-2.73],[-42.48,-9.57],[-35.59,1.45],[-46.53,8.29]]},{"n":"Primary bedroom","dims":"30'0\" × 27'8\"","poly":[[-42.48,-9.57],[-17.03,-25.47],[-2.36,-1.98],[-27.8,13.92]]}],"2":[{"n":"Bedroom","dims":"17'6\" × 22'4\"","poly":[[-2,0],[15.5,0],[15.5,22.3],[-2,22.3]]},{"n":"Closet","dims":"","poly":[[-2,0],[4.75,0],[4.75,3.1],[-2,3.1]]},{"n":"Bathroom","dims":"13'5\" × 6'3\"","poly":[[-2,22.3],[11.42,22.3],[11.42,28.55],[-2,28.55]]},{"n":"Bathroom","dims":"13'5\" × 5'11\"","poly":[[-2,28.55],[11.42,28.55],[11.42,34.45],[-2,34.45]]},{"n":"Closet","dims":"9'6\" × 2'8\"","poly":[[1.92,34.45],[11.42,34.45],[11.42,37.15],[1.92,37.15]]},{"n":"Bedroom","dims":"17'6\" × 16'9\"","poly":[[-2,37.15],[15.5,37.15],[15.5,53.9],[-2,53.9]]},{"n":"Hall","dims":"","poly":[[11.42,22.3],[15.5,22.3],[15.5,37.15],[11.42,37.15]]},{"n":"Landing","dims":"","poly":[[15.5,22.3],[19.8,22.3],[19.8,32.3],[15.5,32.3]]},{"n":"Open to below","dims":"","poly":[[19.8,18.5],[31.2,18.5],[31.2,31.5],[19.8,31.5]]},{"n":"Stairs","dims":"","poly":[[15.5,32.3],[19.8,32.3],[19.8,39.3],[15.5,39.3]]},{"n":"Bonus room","dims":"8'8\" × 9'4\"","poly":[[19.8,33.4],[28.5,33.4],[28.5,42.7],[19.8,42.7]]}]};
+// The rooms you can frame: every labelled room with a size. Each carries its label's
+// position in plan feet as the seed for finding its walls.
+const ROOMS = {};
+for(const k in LABELS){ const p=PLANS[k]; ROOMS[k]=LABELS[k].filter(l=>l.d && !l.noroom).map(l=>({n:l.n, dims:l.d, wing:!!l.wing,
+  x:p.cx+(l.px/p.imgW-0.5)*p.w, y:p.cy+(l.py/p.imgH-0.5)*p.h})); }
 
 /* catalog: dimensions in feet (w = side-to-side, d = front-to-back) */
 const CATALOG = [
@@ -351,6 +386,7 @@ function ftLabel(x){
   const neg = x<0; x=Math.abs(x);
   let f=Math.floor(x+1e-6), i=Math.round((x-f)*12);
   if(i===12){f++;i=0;}
+  if(f===0 && i>0) return (neg?'-':'')+`${i}"`;
   return (neg?'-':'')+(i? `${f}'${i}"` : `${f}'`);
 }
 function parseFt(s){
@@ -396,6 +432,7 @@ function loadMask(k){
     const arr=new Uint8Array(im.width*im.height);
     for(let i=0;i<arr.length;i++) arr[i]=d[i*4]>128?1:0;
     masks[k]={gw:im.width, gh:im.height, a:arr, F:p.imgW/im.width};
+    for(const key in roomShapes) if(key.startsWith(k+':')) delete roomShapes[key];
     if(k===floor) draw();
   };
   im.src=p.mask+AV;
@@ -546,19 +583,27 @@ function draw(){
   if(im && im.complete && im.naturalWidth) ctx.drawImage(im, r.x, r.y, r.w, r.h);
   ctx.restore();
 
-  // re-lettered room labels
+  // room labels, lettered here
   ctx.save();
-  for(const L of RELABEL[floor]||[]){
+  for(const L of LABELS[floor]||[]){
     const x=p.cx+(L.px/p.imgW-0.5)*p.w, y=p.cy+(L.py/p.imgH-0.5)*p.h;
     const [sx,sy]=p2s(x,y);
-    const fs=Math.max(8, Math.min(13, view.s*1.0));
-    if(fs<8.5) continue;
-    ctx.save(); ctx.translate(sx,sy); if(L.rot) ctx.rotate(-rad(L.rot));
-    ctx.textAlign='center'; ctx.fillStyle='#1b1e1c';
-    ctx.font=`700 ${fs}px Archivo`; ctx.fillText(L.n,0,L.d?-1:4);
-    if(L.d){ ctx.font=`600 ${fs*0.82}px Karla`; ctx.fillStyle='#3a403c'; ctx.fillText(L.d,0,fs*0.95); }
+    let fs = L.tag? Math.max(7, Math.min(9.5, view.s*0.7)) : L.small? Math.max(7.5, Math.min(11, view.s*0.85)) : Math.max(8, Math.min(13, view.s*1.0));
+    const minZoom = L.tag? 6 : L.small? 7 : 4;
+    if(view.s<minZoom) continue;
+    ctx.font=`700 ${fs}px Archivo`;
+    const lw=Math.max(ctx.measureText(L.n).width, L.d? ctx.measureText(L.d).width*0.85:0)/view.s/2+0.5, lh=fs*(L.d?2.2:1.2)/view.s/2;
+    if(floorPieces().some(q=>inPiece({...q,w:q.w+2*lw,d:q.d+2*lh},x,y))) continue;   // a piece sits on it
+    ctx.save(); ctx.translate(sx,sy); if(L.rot) ctx.rotate(rad(L.rot));
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(L.tag){ ctx.fillStyle='#4b524d'; ctx.font=`700 ${fs}px Karla`; ctx.fillText(L.n.toUpperCase(),0,0); }
+    else {
+      ctx.fillStyle='#1b1e1c'; ctx.fillText(L.n,0,L.d? -fs*0.55 : 0);
+      if(L.d){ ctx.font=`600 ${fs*0.85}px Karla`; ctx.fillStyle='#3a403c'; ctx.fillText(L.d,0,fs*0.65); }
+    }
     ctx.restore();
   }
+  ctx.textBaseline='alphabetic';
   ctx.restore();
 
   // pieces: rugs and zones underneath
@@ -566,14 +611,26 @@ function draw(){
   const sel=selected();
   for(const q of fp) drawPiece(q, q===sel);
 
-  // room focus: veil everything outside the room
+  // room focus: veil everything outside the room. The room's shape comes from the
+  // wall mask (flood from the room's centre, doors closed off), so the cutout follows
+  // the drawn walls; the traced outline is only the fallback.
   if(focusRoom){
-    const pts=focusRoom.poly.map(([x,y])=>p2s(x,y));
-    ctx.save(); ctx.beginPath(); ctx.rect(0,0,W,H);
-    ctx.moveTo(pts[0][0],pts[0][1]); for(let i=pts.length-1;i>0;i--) ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath();
-    ctx.fillStyle='rgba(236,238,233,.62)'; ctx.fill('evenodd');
-    ctx.beginPath(); pts.forEach(([x,y],i)=> i? ctx.lineTo(x,y):ctx.moveTo(x,y)); ctx.closePath();
-    ctx.strokeStyle='#2d4a86'; ctx.lineWidth=1; ctx.setLineDash([5,4]); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+    const sh=roomShape(focusRoom);
+    if(sh.cells){
+      const vc=veilCanvas(cv.width, cv.height), g=vc.getContext('2d');
+      g.setTransform(DPR,0,0,DPR,0,0); g.clearRect(0,0,W,H);
+      g.fillStyle='rgba(236,238,233,.66)'; g.fillRect(0,0,W,H);
+      g.globalCompositeOperation='destination-out';
+      const cs=sh.cellFt*view.s+0.7;
+      for(const [c,r] of sh.cells){ const [sx,sy]=p2s(sh.x0+c*sh.cellFt, sh.y0+r*sh.cellFt); g.fillRect(sx,sy,cs,cs); }
+      g.globalCompositeOperation='source-over';
+      ctx.drawImage(vc,0,0,W,H);
+    } else {
+      const pts=sh.poly.map(([x,y])=>p2s(x,y));
+      ctx.save(); ctx.beginPath(); ctx.rect(0,0,W,H);
+      ctx.moveTo(pts[0][0],pts[0][1]); for(let i=pts.length-1;i>0;i--) ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath();
+      ctx.fillStyle='rgba(236,238,233,.66)'; ctx.fill('evenodd'); ctx.restore();
+    }
   }
 
   // gaps for the selected piece
@@ -584,8 +641,10 @@ function draw(){
       ctx.strokeStyle='#1b1e1c'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
       ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); ctx.setLineDash([]);
       tick(ax,ay,bx,by); tick(bx,by,ax,ay);
+      const len=Math.hypot(bx-ax,by-ay); if(len<18) return;   // the inspector carries tiny gaps
       const mx=(ax+bx)/2, my=(ay+by)/2, txt=ftLabel(g.d);
       ctx.font='700 10px Karla'; const tw=ctx.measureText(txt).width;
+      if(tw+6>len && len<40) return;
       ctx.fillStyle='#eceee9'; ctx.fillRect(mx-tw/2-3, my-7, tw+6, 14);
       ctx.fillStyle= g.d<2.5 && g.what==='wall' ? '#b07326' : '#1b1e1c';
       ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,mx,my); ctx.textBaseline='alphabetic';
@@ -621,28 +680,67 @@ function draw(){
   if(!exportSize) syncZoomUI();
 }
 const ZMIN=1.5, ZMAX=120;
+let _veil=null;
+function veilCanvas(w,h){ if(!_veil) _veil=document.createElement('canvas'); if(_veil.width!==w||_veil.height!==h){ _veil.width=w; _veil.height=h; } return _veil; }
 function syncZoomUI(){
   const sl=document.getElementById('zoomsl'); if(!sl) return;
   const t=Math.log(view.s/ZMIN)/Math.log(ZMAX/ZMIN);
   sl.value=Math.round(Math.max(0,Math.min(1,t))*1000);
-  document.getElementById('zoomlbl').textContent = view.s>=12 ? `1' = ${Math.round(view.s)}px` : `${(view.s).toFixed(1)} px/ft`;
+  document.getElementById('zoomlbl').textContent = view.s>=12 ? `1 ft = ${Math.round(view.s)} px` : `1 ft = ${view.s.toFixed(1)} px`;
 }
 function zoomToRect(x0,y0,x1,y1,pad=60){
   const W=cv.width/DPR, H=cv.height/DPR, bw=Math.max(1,x1-x0), bh=Math.max(1,y1-y0);
   const s=Math.min(ZMAX, Math.max(ZMIN, Math.min((W-pad*2)/bw, (H-pad*2)/bh)));
   view.s=s; view.ox=W/2-(x0+x1)/2*s; view.oy=H/2-(y0+y1)/2*s; draw();
 }
+// A room's outline is read off the drawing: from its label, rays run to the nearest
+// wall in the four directions of the room's axes (three parallel rays each way, so a
+// doorway does not fool it), and the result is held to the printed size when a ray
+// escapes through a wide opening.
+const roomShapes={};
+// successive walls met along a ray (entering-a-wall distances), up to four
+function wallHits(x,y,dx,dy,maxD=70){ const out=[]; let inWall=isWall(x,y); for(let t=0.1;t<=maxD && out.length<4;t+=0.1){ const w=isWall(x+dx*t,y+dy*t); if(w&&!inWall) out.push(t); inWall=w; } return out; }
+function roomShape(room){
+  const key=floor+':'+(ROOMS[floor]||[]).indexOf(room);
+  if(roomShapes[key]) return roomShapes[key];
+  const ang=rad(room.wing? WING_DEG : 0), c=Math.cos(ang), sn=Math.sin(ang);
+  const ux=[c,sn], uy=[-sn,c];
+  const m=(room.dims||'').match(/(\d+)'(\d*)"?\s*×\s*(\d+)'(\d*)"?/);
+  const A=m? +m[1]+(+m[2]||0)/12 : null, B=m? +m[3]+(+m[4]||0)/12 : null;
+  // every wall each of five parallel rays meets, both ways along an axis
+  const cands=(dir,perp)=>{ const all=[]; for(const o of [-2,-1,0,1,2]){ const sx=room.x+perp[0]*o, sy=room.y+perp[1]*o; if(isWall(sx,sy)) continue; all.push(...wallHits(sx,sy,dir[0],dir[1])); }
+    return all.length? all.sort((p,q)=>p-q) : [12]; };
+  const pick=(neg,pos,target)=>{   // the pair of walls whose span best matches the printed size; else the nearest walls
+    if(target==null) return [neg[0],pos[0]];
+    let best=null; for(const l of neg) for(const r of pos){ const e=Math.abs(l+r-target); if(!best || e<best[0]-1e-9 || (Math.abs(e-best[0])<1e-9 && l+r<best[1]+best[2])) best=[e,l,r]; }
+    let [l,r]=[best[1],best[2]];
+    if(best[0]>2){ // no wall pair spans the printed size (the room opens into another): hold the open side to it
+      if(l<=r) r=Math.max(0.5,target-l); else l=Math.max(0.5,target-r); }
+    return [l,r]; };
+  const Lc=cands([-ux[0],-ux[1]],uy), Rc=cands(ux,uy), Uc=cands([-uy[0],-uy[1]],ux), Dc=cands(uy,ux);
+  let tx=A, ty=B;
+  if(A!=null){ // which printed number belongs to which axis: whichever reading fits the nearest walls better
+    const ex=Lc[0]+Rc[0], ey=Uc[0]+Dc[0];
+    if(Math.abs(ex-B)+Math.abs(ey-A) < Math.abs(ex-A)+Math.abs(ey-B)){ tx=B; ty=A; } }
+  const [L,R]=pick(Lc,Rc,tx), [U,D]=pick(Uc,Dc,ty);
+  const cx=room.x+ux[0]*(R-L)/2+uy[0]*(D-U)/2, cy=room.y+ux[1]*(R-L)/2+uy[1]*(D-U)/2, hw=(L+R)/2, hd=(U+D)/2;
+  const poly=[[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(([p,q])=>[cx+ux[0]*p+uy[0]*q, cy+ux[1]*p+uy[1]*q]);
+  const xs=poly.map(q=>q[0]), ys=poly.map(q=>q[1]);
+  const shape={poly, bbox:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)], cells:null};
+  if(masks[floor]) roomShapes[key]=shape;
+  return shape;
+}
 function setFocusRoom(room){
   if(room && !(ROOMS[floor]||[]).includes(room)) room=null;
   focusRoom=room||null;
   const sel=document.getElementById('roomsel'); sel.value= room? String((ROOMS[floor]||[]).indexOf(room)) : '';
-  if(room){ const xs=room.poly.map(p=>p[0]), ys=room.poly.map(p=>p[1]); zoomToRect(Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));
+  if(room){ const bb=roomShape(room).bbox; zoomToRect(bb[0],bb[1],bb[2],bb[3]);
     setStatus(`<b>${room.n}</b>${room.dims? ' · '+room.dims+' on the listing plan' : ''}. Pieces you drop land in the middle of this room. <kbd>Esc</kbd> shows the whole floor again.`); }
   else draw();
 }
 function fillRoomSelect(){
   const sel=document.getElementById('roomsel'); sel.innerHTML='<option value="">Whole floor</option>';
-  (ROOMS[floor]||[]).forEach((r,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=r.n+(r.dims? '  '+r.dims.replace(/"/g,'"'):''); sel.appendChild(o); });
+  (ROOMS[floor]||[]).forEach((r,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=r.n+(r.dims? '  '+r.dims:''); sel.appendChild(o); });
 }
 function tick(ax,ay,bx,by){
   const dx=bx-ax, dy=by-ay, L=Math.hypot(dx,dy)||1, nx=-dy/L*4, ny=dx/L*4;
@@ -685,15 +783,22 @@ function drawPiece(p, isSel){
   if(g==='tv'){ ctx.beginPath(); ctx.moveTo(-w/2+w*0.1,-d/2+d*0.3); ctx.lineTo(w/2-w*0.1,-d/2+d*0.3); ctx.stroke(); }
   if(g==='car'){ ctx.beginPath(); ctx.moveTo(-w/2+w*0.12,-d/2+d*0.22); ctx.lineTo(w/2-w*0.12,-d/2+d*0.22); ctx.lineTo(w/2-w*0.12,d/2-d*0.3); ctx.lineTo(-w/2+w*0.12,d/2-d*0.3); ctx.closePath(); ctx.stroke(); }
   // labels
-  if(showLabels && (w>26 || isSel)){
-    const fs=Math.max(8, Math.min(12, Math.min(w,d)*0.16, view.s*0.9));
-    if(fs>=8){
-      let a=((p.a%360)+360)%360; if(a>90 && a<270) ctx.rotate(Math.PI);
+  if(showLabels){
+    // small pieces (chairs, stools, nightstands) stay quiet unless selected or the view is close
+    const small = Math.min(p.w,p.d) < 2.2;
+    const fs=Math.max(8, Math.min(12, view.s*0.9));
+    const nm=pieceName(p), sub=`${ftLabel(p.w)} × ${ftLabel(p.d)}`;
+    ctx.font=`700 ${fs}px Archivo`; const nmW=ctx.measureText(nm).width;
+    const fitsName = nmW <= w-8 && fs*1.2 <= d-4;
+    ctx.font=`600 ${fs*0.85}px Karla`; const subW=ctx.measureText(sub).width;
+    const fitsBoth = fitsName && subW <= w-8 && fs*2.6 <= d-4;
+    if((fitsName && (!small || isSel || view.s>=40)) || isSel){
+      let a=((p.a%360)+360)%360; const flip = a>90 && a<270; if(flip) ctx.rotate(Math.PI);
       ctx.fillStyle='#1b1e1c'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.font=`700 ${fs}px Archivo`;
-      const nm=pieceName(p); const sub=`${ftLabel(p.w)} × ${ftLabel(p.d)}`;
-      if(d>fs*2.6 || isSel){ ctx.fillText(nm,0,-fs*0.55, w-4); ctx.font=`600 ${fs*0.85}px Karla`; ctx.fillStyle='#3a403c'; ctx.fillText(sub,0,fs*0.65, w-4); }
-      else ctx.fillText(nm,0,0,w-4);
+      if(fitsBoth){ ctx.fillText(nm,0,-fs*0.55); ctx.font=`600 ${fs*0.85}px Karla`; ctx.fillStyle='#3a403c'; ctx.fillText(sub,0,fs*0.65); }
+      else if(fitsName) ctx.fillText(nm,0,0);
+      else { ctx.fillText(nm,0,(flip?1:-1)*(d/2+fs*0.9)); }   // too small for text inside: label just outside
       ctx.textBaseline='alphabetic';
     }
   }
@@ -789,7 +894,7 @@ document.addEventListener('keydown', e=>{
 /* ---------------- piece ops ---------------- */
 function addPiece(item, isCustom){
   const W=cv.width/DPR, H=cv.height/DPR; let [x,y]=s2p(W/2,H/2);
-  if(focusRoom){ const xs=focusRoom.poly.map(p=>p[0]), ys=focusRoom.poly.map(p=>p[1]); x=(Math.min(...xs)+Math.max(...xs))/2; y=(Math.min(...ys)+Math.max(...ys))/2; }
+  if(focusRoom){ const bb=roomShape(focusRoom).bbox; x=(bb[0]+bb[2])/2; y=(bb[1]+bb[3])/2; }
   const p={id:uid++, t:item.id, l:floor, x:snapv(x), y:snapv(y), a:0, w:item.w, d:item.d};
   if(isCustom) p.n=item.name;
   pieces.push(p); selId=p.id; commit(); draw(); updateInspector(); refreshList();

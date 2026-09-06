@@ -38,10 +38,19 @@ furniture in the 3D view was fiddly; this is the utilitarian tool.
 - Extras: snap (1"/3"/6"/1'), 1-ft grid, measure tool (length + angle; `A` rotates the
   selection to the measured line), custom pieces kept in the palette, undo/redo,
   JSON save/load, layout-in-URL link, PNG export at plan resolution.
-- **Rooms.** `ROOMS` holds each room's outline in plan feet, exported from `index.html`'s
-  hand-traced `LEVELS` (wing rooms rotated through `WING`). The toolbar's room menu
-  frames a room, veils the rest and drops new pieces in its middle. Outlines are the
-  model's, so they sit within a foot or so of the drawing, not on it.
+- **Labels and rooms.** Every piece of text in the three plan PNGs was painted out
+  (Sep 2026; the seller's photo markers sat on half the labels, and the leftovers looked
+  bad). `LABELS` in `plan.html` re-letters all of it on the canvas at the original
+  image-pixel positions: room names with the listing's printed dims, plus small tags
+  (Fireplace, Closet, Stairs, Entry, Open to below). Labels hide when a piece sits on
+  them and drop out at low zoom. `ROOMS` is derived from `LABELS` (anything with a size);
+  `roomShape()` finds a room's outline by casting rays from its label to the walls in the
+  wall mask along the room's axes (five parallel rays each way, every wall they meet),
+  then picks the wall pair whose span matches the printed size and clamps open sides
+  (kitchen, living room) to it. Measured outlines land within inches of the printed dims
+  on all three floors. The wing angle is 24°, measured from the wall pixels (the 3D
+  model's hand estimate was 32°). The toolbar's room menu frames a room and veils the
+  rest; new pieces drop in its middle.
 - **Listing import.** Paste a product URL: the page is fetched through `r.jina.ai` (a
   public reader; no key, no cost) and `parseDims()` reads width/depth/height out of the
   text — labeled fields, `84"W x 38"D x 34"H` forms, `W x D x H` order hints, cm/mm,
@@ -50,10 +59,10 @@ furniture in the 3D view was fiddly; this is the utilitarian tool.
   box: select-all/copy on the product page, paste, same parser. Imported pieces keep
   `h` and `url`; the inspector links back to the listing. `allorigins.win` was tried as a
   second reader and dropped: no CORS header.
-- The plan PNGs were cleaned in Sep 2026: photo-marker discs and the room labels they
-  sat on were painted out (row-copy of the local background, walls kept), and the
-  lower-level aerial background made transparent to match the other two. `RELABEL`
-  re-letters those rooms on the canvas. Originals are in git history (commit 210a0dc).
+- Plan PNG cleanup (Sep 2026): all text and the photo-marker discs painted out (each
+  pixel copied from the nearest clean floor pixel on its row; walls and deck boards
+  left alone), lower-level aerial background made transparent. Originals are in git
+  history (commit 210a0dc) if the erasure ever needs redoing.
 
 ## No build step
 Everything is one file: **`index.html`** (HTML + CSS + a single ES-module `<script>`).

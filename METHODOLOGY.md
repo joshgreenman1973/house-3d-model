@@ -20,7 +20,7 @@ Unchecking the box switches to the interpreted hand-built massing model describe
 ## How the traced model was built
 - Each room is modeled as a rectangle using the dimensions printed on the floor plans (e.g. "Living Room 15'9" x 26'4""). Where no dimension was printed (halls, small closets, the primary bathroom's full extent), sizes were estimated visually from the plan images.
 - Room positions were placed by eye to match the plan images, then checked by rendering the model in plan view and comparing it side-by-side against each floor-plan image.
-- The angled wing (primary suite above; garage and workspace below) is modeled at a 32-degree rotation, estimated from the plan and aerial images.
+- The angled wing (primary suite above; garage and workspace below) is modeled at a 32-degree rotation, estimated from the plan and aerial images. (The 2D planner later measured the wing's walls in the drawing at 24 degrees; the 3D model's traced geometry has not been re-angled.)
 - **Doorways**: door openings (with headers above) are cut into walls wherever the plans show rooms connecting. Exact door positions and widths are estimates read off the drawings; standard 6'10" door height assumed (7'6" for the garage vehicle door).
 - **The rotunda is cylindrical**: the round tower joining the two wings is modeled as a true cylinder on both levels — curved walls with arched door openings, a full round floor on the lower level and a ring-shaped floor on the main level that the spiral stair rises through. Its ~11-foot diameter and exact position are estimated from the drawings, placed tangent to the primary bedroom's east wall (which it connects to directly). On its south side a short foyer connects the drum to the dining room (main level) and to the library (lower level); on the plan this junction is a curved glazed bay, simplified here to a straight vestibule.
 - **The primary-suite deck** is modeled as the clipped pentagon shown on the plan, not a rectangle.
@@ -39,6 +39,7 @@ Unchecking the box switches to the interpreted hand-built massing model describe
 - Pieces are placed by clicking, moved by dragging, rotated in 45° increments and deleted; the layout persists in the browser's local storage (per device, not shared).
 - Furniture footprints and the house share one scale, so fit checks ("does a king bed leave walking room in the small bedroom?") are meaningful to within the model's overall accuracy.
 
+- Room labels in the planner are re-lettered from the listing's own text (the images had theirs painted out); room outlines used for framing are measured from the drawn walls and held to the printed dimensions, and they agree with those dimensions to within a few inches on nearly every room.
 - Furniture sizes imported from a store page are read by pattern-matching the page text (labeled width/depth/height, `W x D x H` strings, metric converted at 2.54 cm per inch). The read values are shown for checking before a piece is added; where the page gives three bare numbers with no letters, the order is assumed to be width × depth × height and flagged as such.
 
 ## Known limitations
