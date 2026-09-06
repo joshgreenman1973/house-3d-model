@@ -34,6 +34,7 @@ Unchecking the box switches to the interpreted hand-built massing model describe
 - Levels are stacked at 10.5 ft floor-to-floor.
 
 ## Furniture
+- A flat top-down planner (`plan.html`) uses the same plan images, scale and wall masks. It reports the gap from each side of a selected piece to the nearest wall or other piece by casting rays against the wall mask, so those gaps inherit the mask's resolution (about 2-3 inches on the main and lower plans, about 1 inch on the upper plan) and the listing drawing's own accuracy.
 - The palette contains ~27 common pieces (beds, sofas, tables, pool table, car, washer, etc.) modeled at standard retail dimensions, which are shown next to each item (e.g. queen bed 5'0" × 6'8"; midsize car 6' × 15'2").
 - Pieces are placed by clicking, moved by dragging, rotated in 45° increments and deleted; the layout persists in the browser's local storage (per device, not shared).
 - Furniture footprints and the house share one scale, so fit checks ("does a king bed leave walking room in the small bedroom?") are meaningful to within the model's overall accuracy.

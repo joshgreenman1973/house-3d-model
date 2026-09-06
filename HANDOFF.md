@@ -12,13 +12,32 @@ real-estate listing floorplans. Built to be viewed in any browser.
   die between sessions — a plain background `http.server` is more reliable.
 
 ## The house
-Listing: pending $999,000, ~3,518 sq ft, 3 bed / 5 bath. Three levels:
+10 Abbott Lane, Cornwall-on-Hudson, NY. Listing: pending $999,000, ~3,518 sq ft,
+3 bed / 5 bath. Three levels:
 - **Lower** (`plan-lower.png`): garage, workspace, library, game room, laundry, covered deck.
 - **Main** (`plan-main.png`): angled primary-suite wing (bath, sauna, bedrooms, deck)
   joined by a round rotunda to the main block (dining, screened porch, kitchen,
   sitting room, living room, decks).
 - **Upper** (`plan-upper.png`): two bedrooms, two baths, closets, bonus room, and the
   "Open To Below" void over the kitchen.
+
+## plan.html — the flat furniture planner (Sep 2026)
+`plan.html` is a second, self-contained page: the three plan images drawn top-down on
+a 2D canvas with a furniture palette. No Three.js, no build. It exists because placing
+furniture in the 3D view was fiddly; this is the utilitarian tool.
+- Same `PLANS` calibration and plan-feet coordinates as `index.html`, so both pages
+  read and write one layout. Storage key `abbott-plan-v1` is the planner's own
+  (pieces + custom sizes); on every save it mirrors catalog pieces into
+  `house3d-furniture` (the 3D model's key, `rotation.y = -screenAngle`).
+- Walls come from the same `wallmask-*.png` files. They drive the gap readouts
+  (rays from each side of the selected piece to the nearest wall or piece) and the
+  amber "in a wall" outline.
+- Room labels the listing's photo markers covered are re-lettered from the `RELABEL`
+  table (image-pixel positions). The marker discs themselves were painted out of the
+  plan PNGs (Sep 2026; originals were the same images with blue photo dots).
+- Extras: snap (1"/3"/6"/1'), 1-ft grid, measure tool (length + angle; `A` rotates the
+  selection to the measured line), custom pieces kept in the palette, undo/redo,
+  JSON save/load, layout-in-URL link, PNG export at plan resolution.
 
 ## No build step
 Everything is one file: **`index.html`** (HTML + CSS + a single ES-module `<script>`).

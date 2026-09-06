@@ -195,7 +195,7 @@
 <div id="titleblock">
   <div class="kicker">Sheet A-3 · Massing model</div>
   <h1>The house, in three dimensions</h1>
-  <div class="sub">The walls here are extruded directly from the listing's own floorplan drawings, so each level matches the plan exactly. Uncheck <b>Match listing floorplans</b> for the interpreted 3D massing model instead. Place to-scale furniture from the panel at right.</div>
+  <div class="sub">The walls here are extruded directly from the listing's own floorplan drawings, so each level matches the plan exactly. Uncheck <b>Match listing floorplans</b> for the interpreted 3D massing model instead. Place to-scale furniture from the panel at right. For laying out furniture room by room, the flat <a href="plan.html" style="color:var(--accent)">2D planner</a> is the easier tool; the two share one layout.</div>
 </div>
 
 <button id="caution-btn">AI caution</button>
@@ -820,7 +820,7 @@ FIXTURES.forEach(f=>{
 
 // ---- actual listing floorplans, laid onto the floor plates ----
 const texLoader = new THREE.TextureLoader();
-const AV = '?v=14';   // asset version — bump when plan images / masks change (cache-bust)
+const AV = '?v=15';   // asset version — bump when plan images / masks change (cache-bust)
 const PLANS = {
   // scales calibrated from each drawing's own printed room dimensions
   // (upper 0.0305, main 0.0673, lower 0.069 ft/px), aspect preserved
