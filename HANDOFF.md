@@ -38,6 +38,22 @@ furniture in the 3D view was fiddly; this is the utilitarian tool.
 - Extras: snap (1"/3"/6"/1'), 1-ft grid, measure tool (length + angle; `A` rotates the
   selection to the measured line), custom pieces kept in the palette, undo/redo,
   JSON save/load, layout-in-URL link, PNG export at plan resolution.
+- **Rooms.** `ROOMS` holds each room's outline in plan feet, exported from `index.html`'s
+  hand-traced `LEVELS` (wing rooms rotated through `WING`). The toolbar's room menu
+  frames a room, veils the rest and drops new pieces in its middle. Outlines are the
+  model's, so they sit within a foot or so of the drawing, not on it.
+- **Listing import.** Paste a product URL: the page is fetched through `r.jina.ai` (a
+  public reader; no key, no cost) and `parseDims()` reads width/depth/height out of the
+  text — labeled fields, `84"W x 38"D x 34"H` forms, `W x D x H` order hints, cm/mm,
+  fractions, feet-and-inches. Most big furniture stores (Wayfair, IKEA, Article, Pottery
+  Barn product pages, CB2) block outside readers, so the reliable path is the paste
+  box: select-all/copy on the product page, paste, same parser. Imported pieces keep
+  `h` and `url`; the inspector links back to the listing. `allorigins.win` was tried as a
+  second reader and dropped: no CORS header.
+- The plan PNGs were cleaned in Sep 2026: photo-marker discs and the room labels they
+  sat on were painted out (row-copy of the local background, walls kept), and the
+  lower-level aerial background made transparent to match the other two. `RELABEL`
+  re-letters those rooms on the canvas. Originals are in git history (commit 210a0dc).
 
 ## No build step
 Everything is one file: **`index.html`** (HTML + CSS + a single ES-module `<script>`).

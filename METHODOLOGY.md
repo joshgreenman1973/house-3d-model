@@ -39,6 +39,8 @@ Unchecking the box switches to the interpreted hand-built massing model describe
 - Pieces are placed by clicking, moved by dragging, rotated in 45° increments and deleted; the layout persists in the browser's local storage (per device, not shared).
 - Furniture footprints and the house share one scale, so fit checks ("does a king bed leave walking room in the small bedroom?") are meaningful to within the model's overall accuracy.
 
+- Furniture sizes imported from a store page are read by pattern-matching the page text (labeled width/depth/height, `W x D x H` strings, metric converted at 2.54 cm per inch). The read values are shown for checking before a piece is added; where the page gives three bare numbers with no letters, the order is assumed to be width × depth × height and flagged as such.
+
 ## Known limitations
 - This is a massing study, not a measured drawing. Windows, closet fittings, stair railings, fireplaces and built-ins are omitted or simplified; door swings are not modeled.
 - Most rooms are pure rectangles (the rotunda and the primary-suite deck are the exceptions). A few subtler shapes remain squared off: the angled bay corner of the primary bedroom, the rounded corner of the lower-level 7'8" × 6'2" storage room, and the curved glazed bay between the rotunda and the dining room/library (drawn here as a straight foyer). Adjacent rooms draw their own walls, so some shared walls render doubled.

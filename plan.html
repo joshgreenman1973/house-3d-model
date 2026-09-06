@@ -108,10 +108,23 @@
 
   @media (max-width:760px){
     #app{grid-template-columns:1fr;grid-template-rows:auto auto 1fr auto}
-    #side{max-height:36vh;border-right:0;border-bottom:1px solid var(--hair)}
+    .strip,#status,#side,#stage{grid-column:1}
+    .strip{flex-wrap:wrap;padding:0 10px}
+    .tools{margin-left:0;width:100%;border-top:1px solid var(--hair)}
+    #side{max-height:34vh;border-right:0;border-bottom:1px solid var(--hair)}
     .tools a{display:none}
     #status .keys{display:none}
   }
+  select{background:var(--paper);border:1px solid var(--hair);padding:4px 6px;font-size:var(--t-small);letter-spacing:.08em;
+    text-transform:uppercase;font-weight:700;color:var(--ink2);max-width:190px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:110px;height:1px;background:var(--ink2);margin:0 4px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:14px;background:var(--ink1);border:0;cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:10px;height:14px;background:var(--ink1);border:0;border-radius:0;cursor:pointer}
+  textarea{width:100%;background:var(--paper);border:1px solid var(--hair);padding:6px 7px;font-family:inherit;font-size:12px;resize:vertical}
+  .msg{font-size:12px;line-height:1.4;margin-top:8px;color:var(--ink)}
+  .msg.err{color:var(--ink4)}
+  .msg a{color:var(--ink1)}
+  #i-src a{color:var(--ink1)}
 </style>
 </head>
 <body>
@@ -135,7 +148,10 @@
       <button id="gridbtn" title="1-foot grid (G)">Grid</button>
       <button id="labelbtn" class="on" title="Labels on pieces (L)">Labels</button>
       <button id="fitbtn" title="Fit floor in view (F)">Fit</button>
-      <div class="seg"><button id="zoomout">−</button><button id="zoomin">+</button></div>
+      <button id="zoomout" title="Zoom out">−</button><input type="range" id="zoomsl" min="0" max="1000" value="300" title="Zoom"><button id="zoomin" title="Zoom in">+</button>
+      <span class="brand" id="zoomlbl" style="font-size:var(--t-micro);min-width:54px"></span>
+      <div class="sep"></div>
+      <select id="roomsel" title="Zoom to a room and dim the rest (Esc clears)"><option value="">Whole floor</option></select>
       <div class="sep"></div>
       <button id="undobtn" title="Undo (⌘Z)">Undo</button>
       <button id="redobtn" title="Redo (⇧⌘Z)">Redo</button>
@@ -154,6 +170,7 @@
       <h2>Selected</h2>
       <div class="nm" id="i-name"></div>
       <div class="dm" id="i-dims"></div>
+      <div class="dm" id="i-src" style="margin-top:-6px"></div>
       <div class="btnrow">
         <button id="rotl" title="Rotate 90° counter-clockwise (⇧R)">↺ 90°</button>
         <button id="rotr" title="Rotate 90° clockwise (R)">↻ 90°</button>
@@ -180,14 +197,27 @@
     </section>
 
     <section>
-      <h2>Your own piece</h2>
+      <h2>Your own furniture</h2>
       <div class="form">
+        <input type="text" id="u-url" class="wide" placeholder="Paste a product page link">
+        <button id="u-go">Read dimensions from the page</button>
+      </div>
+      <div class="msg" id="u-msg">Works when the store lets outside readers in; many (Wayfair, IKEA, Article) don't. Then paste instead.</div>
+      <details id="u-pastewrap"><summary>Paste the page text instead</summary>
+        <div class="form" style="margin-bottom:8px">
+          <textarea id="u-paste" class="wide" rows="4" placeholder="On the product page: select all, copy, paste here. The dimensions line alone is enough."></textarea>
+          <button id="u-parse">Read dimensions from the text</button>
+        </div>
+      </details>
+      <div class="form" style="margin-top:10px">
         <input type="text" id="c-name" class="wide" placeholder="Name (e.g. our sectional)">
         <div><label>Width</label><input type="text" id="c-w" placeholder="7'6&quot;"></div>
         <div><label>Depth</label><input type="text" id="c-d" placeholder="3'2&quot;"></div>
+        <div><label>Height (optional)</label><input type="text" id="c-h" placeholder="2'10&quot;"></div>
+        <div></div>
         <button id="c-add">Add and keep in palette</button>
       </div>
-      <div class="hint">Accepts 7'6", 7' 6, 90" or 7.5. Saved pieces appear under "Yours" above.</div>
+      <div class="hint">Sizes can be 7'6", 7' 6, 90" or 7.5. Anything you add stays under "Yours" in the palette above.</div>
     </section>
 
     <section>
@@ -218,7 +248,7 @@
    is placed by PLANS (calibrated from the drawings' printed dimensions).
    Screen y = plan y (north up on the drawing).
 ------------------------------------------------------------------- */
-const AV='?v=15';
+const AV='?v=16';
 const PLANS = {
   0:{file:'plan-lower.png', mask:'wallmask-lower.png', imgW:1394, imgH:1644, w:96.2, h:113.4, cx:-4.76, cy:4.0,  name:'Lower level'},
   1:{file:'plan-main.png',  mask:'wallmask-main.png',  imgW:1474, imgH:1686, w:99.2, h:113.5, cx:-1.62, cy:5.04, name:'Main level'},
@@ -230,15 +260,19 @@ const WING_DEG = 32;   // the bedroom / garage wing sits about 32° off the main
 // the marker position (image pixels) so they read cleanly. Dims are the
 // listing's own; "?" is a digit the marker ate.
 const RELABEL = {
-  0:[ {px:873, py:877, n:'Library', d:'15\'9" × 24\'4"'},
-      {px:1046,py:990, n:'Half bath', d:'4\'7" × ?'},
-      {px:705, py:650, n:'Stairs (up)', d:''},
-      {px:548, py:530, n:'Workspace', d:'24\'4" × 26\'10"'} ],
-  1:[ {px:874, py:905, n:'Dining room', d:'15\'10" × 20\'1"'},
-      {px:830, py:1100,n:'Bathroom', d:'13\'8" × 5\'11"'},
-      {px:1116,py:1122,n:'Kitchen', d:'15\'0" × 15\'9"'} ],
+  0:[ {px:895, py:889, n:'Library', d:'15\'9" × 24\'4"'},
+      {px:1027,py:996, n:'Half bath', d:'4\'7" × ?'},
+      {px:703, py:653, n:'Stairs (up)', d:''},
+      {px:508, py:536, n:'Workspace', d:'24\'4" × 26\'10"'} ],
+  1:[ {px:914, py:909, n:'Dining room', d:'15\'10" × 20\'1"'},
+      {px:826, py:1110,n:'Bathroom', d:'13\'8" × 5\'11"'},
+      {px:1138,py:1127,n:'Kitchen', d:'15\'0" × 15\'9"'} ],
   2:[]
 };
+
+// Room outlines (plan feet), traced for the 3D model from the listing drawings.
+// Good enough to frame a room; not a survey.
+const ROOMS = {"0":[{"n":"Library","dims":"15'9\" × 24'4\"","poly":[[0,0],[15.75,0],[15.75,24.3],[0,24.3]]},{"n":"Foyer","dims":"","poly":[[-3.5,-5.6],[1.5,-5.6],[1.5,0],[-3.5,0]]},{"n":"Half bath","dims":"","poly":[[16,16.9],[20.6,16.9],[20.6,20.6],[16,20.6]]},{"n":"Laundry","dims":"18'5\" × 8'7\"","poly":[[15.8,20.6],[34.2,20.6],[34.2,29.2],[15.8,29.2]]},{"n":"Storage","dims":"7'8\" × 6'2\"","poly":[[8,24.3],[15.7,24.3],[15.7,30.6],[8,30.6]]},{"n":"Storage","dims":"15'9\" × 18'2\"","poly":[[-2,30.6],[13.75,30.6],[13.75,48.8],[-2,48.8]]},{"n":"Closet","dims":"","poly":[[15.8,29.2],[20.2,29.2],[20.2,32.3],[15.8,32.3]]},{"n":"Stairs","dims":"","poly":[[15.8,32.3],[20.2,32.3],[20.2,39.3],[15.8,39.3]]},{"n":"Game room","dims":"18'5\" × 36'3\"","poly":[[20.2,29.2],[34.2,29.2],[34.2,65.5],[20.2,65.5]]},{"n":"Covered deck","dims":"6'5\" × 45'10\"","poly":[[34.2,19.8],[40.6,19.8],[40.6,65.6],[34.2,65.6]]},{"n":"Garage","dims":"26'10\" × 34'6\"","poly":[[-81.11,-26.11],[-58.38,-40.31],[-40.1,-11.05],[-62.83,3.15]]},{"n":"Storage","dims":"7'9\" × 12'3\"","poly":[[-58.38,-40.31],[-51.81,-44.42],[-45.32,-34.03],[-51.89,-29.92]]},{"n":"Workspace","dims":"24'4\" × 26'10\"","poly":[[-41.63,-10.1],[-21.02,-22.98],[-6.82,-0.25],[-27.43,12.63]]},{"n":"Hall","dims":"","poly":[[-12.54,-9.41],[-8.56,-11.9],[-4.32,-5.12],[-8.3,-2.62]]}],"1":[{"n":"Dining room","dims":"15'10\" × 20'1\"","poly":[[0,0],[15.8,0],[15.8,20.1],[0,20.1]]},{"n":"Screened porch","dims":"15'9\" × 12'2\"","poly":[[15.8,4],[31.55,4],[31.55,16.2],[15.8,16.2]]},{"n":"Kitchen","dims":"15'0\" × 15'9\"","poly":[[16,16.4],[31.55,16.4],[31.55,32.3],[16,32.3]]},{"n":"Bathroom","dims":"13'8\" × 5'11\"","poly":[[-2,20.1],[11.7,20.1],[11.7,26],[-2,26]]},{"n":"Closets","dims":"","poly":[[-2,26],[11.7,26],[11.7,29.2],[-2,29.2]]},{"n":"Sitting room","dims":"18'1\" × 13'4\"","poly":[[-2,29.2],[16,29.2],[16,42.5],[-2,42.5]]},{"n":"Stairs","dims":"","poly":[[16,32.3],[20.3,32.3],[20.3,39.3],[16,39.3]]},{"n":"Hall","dims":"","poly":[[20.3,32.3],[31.55,32.3],[31.55,41.9],[20.3,41.9]]},{"n":"Living room","dims":"15'9\" × 26'4\"","poly":[[16,41.9],[31.75,41.9],[31.75,68.2],[16,68.2]]},{"n":"Deck","dims":"13'7\" × 31'2\"","poly":[[31.75,20.9],[45.35,20.9],[45.35,52.1],[31.75,52.1]]},{"n":"Foyer","dims":"","poly":[[-3.5,-5.6],[1.5,-5.6],[1.5,0],[-3.5,0]]},{"n":"Primary bath","dims":"~14' × 12'","poly":[[-48.83,-19.75],[-36.96,-27.17],[-30.6,-16.99],[-42.48,-9.57]]},{"n":"Sauna","dims":"5'5\" × 9'11\"","poly":[[-36.96,-27.17],[-32.38,-30.03],[-27.14,-21.63],[-31.72,-18.77]]},{"n":"Bedroom","dims":"9'6\" × 10'2\"","poly":[[-31.43,-28.5],[-23.37,-33.54],[-17.97,-24.89],[-26.02,-19.85]]},{"n":"Bedroom","dims":"12'11\" × 13'0\"","poly":[[-53.42,-2.73],[-42.48,-9.57],[-35.59,1.45],[-46.53,8.29]]},{"n":"Primary bedroom","dims":"30'0\" × 27'8\"","poly":[[-42.48,-9.57],[-17.03,-25.47],[-2.36,-1.98],[-27.8,13.92]]}],"2":[{"n":"Bedroom","dims":"17'6\" × 22'4\"","poly":[[-2,0],[15.5,0],[15.5,22.3],[-2,22.3]]},{"n":"Closet","dims":"","poly":[[-2,0],[4.75,0],[4.75,3.1],[-2,3.1]]},{"n":"Bathroom","dims":"13'5\" × 6'3\"","poly":[[-2,22.3],[11.42,22.3],[11.42,28.55],[-2,28.55]]},{"n":"Bathroom","dims":"13'5\" × 5'11\"","poly":[[-2,28.55],[11.42,28.55],[11.42,34.45],[-2,34.45]]},{"n":"Closet","dims":"9'6\" × 2'8\"","poly":[[1.92,34.45],[11.42,34.45],[11.42,37.15],[1.92,37.15]]},{"n":"Bedroom","dims":"17'6\" × 16'9\"","poly":[[-2,37.15],[15.5,37.15],[15.5,53.9],[-2,53.9]]},{"n":"Hall","dims":"","poly":[[11.42,22.3],[15.5,22.3],[15.5,37.15],[11.42,37.15]]},{"n":"Landing","dims":"","poly":[[15.5,22.3],[19.8,22.3],[19.8,32.3],[15.5,32.3]]},{"n":"Open to below","dims":"","poly":[[19.8,18.5],[31.2,18.5],[31.2,31.5],[19.8,31.5]]},{"n":"Stairs","dims":"","poly":[[15.5,32.3],[19.8,32.3],[19.8,39.3],[15.5,39.3]]},{"n":"Bonus room","dims":"8'8\" × 9'4\"","poly":[[19.8,33.4],[28.5,33.4],[28.5,42.7],[19.8,42.7]]}]};
 
 /* catalog: dimensions in feet (w = side-to-side, d = front-to-back) */
 const CATALOG = [
@@ -301,6 +335,8 @@ let showGrid = false, showLabels = true;
 let view = {s: 8, ox: 0, oy: 0};   // px per ft, screen offset
 const imgs = {}, masks = {};
 let measure = null;      // {x0,y0,x1,y1,done}
+let focusRoom = null;    // a ROOMS entry, when a room is framed
+let pendingImport = null; // {url,h} carried from a listing read into the custom form
 let hist = [], hidx = -1;
 let uid = 1;
 
@@ -530,6 +566,16 @@ function draw(){
   const sel=selected();
   for(const q of fp) drawPiece(q, q===sel);
 
+  // room focus: veil everything outside the room
+  if(focusRoom){
+    const pts=focusRoom.poly.map(([x,y])=>p2s(x,y));
+    ctx.save(); ctx.beginPath(); ctx.rect(0,0,W,H);
+    ctx.moveTo(pts[0][0],pts[0][1]); for(let i=pts.length-1;i>0;i--) ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath();
+    ctx.fillStyle='rgba(236,238,233,.62)'; ctx.fill('evenodd');
+    ctx.beginPath(); pts.forEach(([x,y],i)=> i? ctx.lineTo(x,y):ctx.moveTo(x,y)); ctx.closePath();
+    ctx.strokeStyle='#2d4a86'; ctx.lineWidth=1; ctx.setLineDash([5,4]); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  }
+
   // gaps for the selected piece
   if(sel && sel.l===floor && mode==='select'){
     const gs=gapsFor(sel);
@@ -571,7 +617,32 @@ function draw(){
   ctx.strokeStyle='#1b1e1c'; ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(bx0,by0); ctx.lineTo(bx0+bw,by0); ctx.moveTo(bx0+.5,by0-4); ctx.lineTo(bx0+.5,by0+4); ctx.moveTo(bx0+bw-.5,by0-4); ctx.lineTo(bx0+bw-.5,by0+4); ctx.stroke();
   ctx.font='700 9.5px Karla'; ctx.fillStyle='#5c625d'; ctx.textAlign='left'; ctx.fillText(`${barFt} ft`, bx0, by0-7);
-  ctx.textAlign='right'; ctx.fillText(p.name.toUpperCase(), W-14, by0-1);
+  ctx.textAlign='right'; ctx.fillText((focusRoom? focusRoom.n+' · ' : '')+p.name.toUpperCase(), W-14, by0-1);
+  if(!exportSize) syncZoomUI();
+}
+const ZMIN=1.5, ZMAX=120;
+function syncZoomUI(){
+  const sl=document.getElementById('zoomsl'); if(!sl) return;
+  const t=Math.log(view.s/ZMIN)/Math.log(ZMAX/ZMIN);
+  sl.value=Math.round(Math.max(0,Math.min(1,t))*1000);
+  document.getElementById('zoomlbl').textContent = view.s>=12 ? `1' = ${Math.round(view.s)}px` : `${(view.s).toFixed(1)} px/ft`;
+}
+function zoomToRect(x0,y0,x1,y1,pad=60){
+  const W=cv.width/DPR, H=cv.height/DPR, bw=Math.max(1,x1-x0), bh=Math.max(1,y1-y0);
+  const s=Math.min(ZMAX, Math.max(ZMIN, Math.min((W-pad*2)/bw, (H-pad*2)/bh)));
+  view.s=s; view.ox=W/2-(x0+x1)/2*s; view.oy=H/2-(y0+y1)/2*s; draw();
+}
+function setFocusRoom(room){
+  if(room && !(ROOMS[floor]||[]).includes(room)) room=null;
+  focusRoom=room||null;
+  const sel=document.getElementById('roomsel'); sel.value= room? String((ROOMS[floor]||[]).indexOf(room)) : '';
+  if(room){ const xs=room.poly.map(p=>p[0]), ys=room.poly.map(p=>p[1]); zoomToRect(Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));
+    setStatus(`<b>${room.n}</b>${room.dims? ' · '+room.dims+' on the listing plan' : ''}. Pieces you drop land in the middle of this room. <kbd>Esc</kbd> shows the whole floor again.`); }
+  else draw();
+}
+function fillRoomSelect(){
+  const sel=document.getElementById('roomsel'); sel.innerHTML='<option value="">Whole floor</option>';
+  (ROOMS[floor]||[]).forEach((r,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=r.n+(r.dims? '  '+r.dims.replace(/"/g,'"'):''); sel.appendChild(o); });
 }
 function tick(ax,ay,bx,by){
   const dx=bx-ax, dy=by-ay, L=Math.hypot(dx,dy)||1, nx=-dy/L*4, ny=dx/L*4;
@@ -696,7 +767,8 @@ document.addEventListener('keydown', e=>{
   const s=selected(); const k=e.key;
   const meta=e.metaKey||e.ctrlKey;
   if(meta && k.toLowerCase()==='z'){ e.preventDefault(); e.shiftKey? redo() : undo(); return; }
-  if(k==='Escape'){ selId=null; measure=null; setMode('select'); updateInspector(); refreshList(); draw(); return; }
+  if(k==='Escape'){ if(focusRoom){ setFocusRoom(null); return; } selId=null; measure=null; setMode('select'); updateInspector(); refreshList(); draw(); return; }
+  if((k==='z'||k==='Z') && !meta){ const s=selected(); if(s){ const r=Math.hypot(s.w,s.d)/2+3; zoomToRect(s.x-r,s.y-r,s.x+r,s.y+r); } return; }
   if(k==='f'||k==='F'){ fit(); return; }
   if(k==='g'||k==='G'){ toggleGrid(); return; }
   if(k==='l'||k==='L'){ toggleLabels(); return; }
@@ -716,7 +788,8 @@ document.addEventListener('keydown', e=>{
 
 /* ---------------- piece ops ---------------- */
 function addPiece(item, isCustom){
-  const W=cv.width/DPR, H=cv.height/DPR, [x,y]=s2p(W/2,H/2);
+  const W=cv.width/DPR, H=cv.height/DPR; let [x,y]=s2p(W/2,H/2);
+  if(focusRoom){ const xs=focusRoom.poly.map(p=>p[0]), ys=focusRoom.poly.map(p=>p[1]); x=(Math.min(...xs)+Math.max(...xs))/2; y=(Math.min(...ys)+Math.max(...ys))/2; }
   const p={id:uid++, t:item.id, l:floor, x:snapv(x), y:snapv(y), a:0, w:item.w, d:item.d};
   if(isCustom) p.n=item.name;
   pieces.push(p); selId=p.id; commit(); draw(); updateInspector(); refreshList();
@@ -730,7 +803,7 @@ function deleteSel(){ const s=selected(); if(!s) return; pieces=pieces.filter(p=
 function setStatus(html){ document.getElementById('st-left').innerHTML=html; }
 function setMode(m){ mode=m; measure= m==='measure'? measure : null; document.querySelectorAll('#modeseg button').forEach(b=>b.classList.toggle('on',b.dataset.m===m)); cv.className= m==='measure'?'measure':''; draw();
   if(m==='measure') setStatus('Click and drag between two points. The readout shows length and angle.'); }
-function setFloor(f){ floor=f; selId=null; measure=null; setStatus(`${PLANS[f].name}. Click a piece in the palette to drop it in the middle of the view.`); document.querySelectorAll('#floortabs button').forEach(b=>b.classList.toggle('on',+b.dataset.f===f)); pieces.forEach(p=>p._bad=undefined); save(); fit(); updateInspector(); refreshList(); }
+function setFloor(f){ floor=f; selId=null; measure=null; focusRoom=null; fillRoomSelect(); setStatus(`${PLANS[f].name}. Click a piece in the palette to drop it in the middle of the view.`); document.querySelectorAll('#floortabs button').forEach(b=>b.classList.toggle('on',+b.dataset.f===f)); pieces.forEach(p=>p._bad=undefined); save(); fit(); updateInspector(); refreshList(); }
 function toggleGrid(){ showGrid=!showGrid; document.getElementById('gridbtn').classList.toggle('on',showGrid); draw(); }
 function toggleLabels(){ showLabels=!showLabels; document.getElementById('labelbtn').classList.toggle('on',showLabels); draw(); }
 
@@ -740,6 +813,8 @@ function updateInspector(light){
   el.classList.add('open');
   document.getElementById('i-name').textContent=pieceName(s);
   document.getElementById('i-dims').textContent=`${ftLabel(s.w)} × ${ftLabel(s.d)}  ·  ${pieceCat(s)}`;
+  const ci=catItem(s.t)||{}, srcEl=document.getElementById('i-src');
+  srcEl.innerHTML = [ci.h? `height ${ftLabel(ci.h)}` : '', ci.url? `<a href="${ci.url}" target="_blank" rel="noopener">listing at ${hostOf(ci.url)} ↗</a>` : ''].filter(Boolean).join(' · ');
   const ai=document.getElementById('i-angle'); if(document.activeElement!==ai) ai.value=Math.round(s.a*10)/10;
   const gs=gapsFor(s);
   ['g0','g1','g2','g3'].forEach((id,i)=>{ const g=gs[i], e=document.getElementById(id);
@@ -788,9 +863,14 @@ document.getElementById('c-add').onclick=()=>{
   const name=document.getElementById('c-name').value.trim()||'Custom piece';
   const w=parseFt(document.getElementById('c-w').value), d=parseFt(document.getElementById('c-d').value);
   if(!(w>0&&d>0)){ setStatus('Width and depth need to be sizes like 7\'6", 90" or 7.5.'); return; }
+  const h=parseFt(document.getElementById('c-h').value);
   const item={id:'c'+Date.now().toString(36), name, w:+w.toFixed(3), d:+d.toFixed(3)};
+  if(h>0) item.h=+h.toFixed(3);
+  if(pendingImport && pendingImport.url) item.url=pendingImport.url;
   customs.push(item); save(); buildPalette(); addPiece(item,true);
-  document.getElementById('c-name').value=''; document.getElementById('c-w').value=''; document.getElementById('c-d').value='';
+  pendingImport=null;
+  ['c-name','c-w','c-d','c-h','u-url'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('u-msg').textContent='Added. Paste another link, or type a size.'; document.getElementById('u-msg').className='msg';
 };
 document.querySelectorAll('#floortabs button').forEach(b=>b.onclick=()=>setFloor(+b.dataset.f));
 document.querySelectorAll('#modeseg button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
@@ -800,6 +880,8 @@ document.getElementById('labelbtn').onclick=toggleLabels;
 document.getElementById('fitbtn').onclick=fit;
 document.getElementById('zoomin').onclick=()=>zoomAt(1.3, cv.width/DPR/2, cv.height/DPR/2);
 document.getElementById('zoomout').onclick=()=>zoomAt(1/1.3, cv.width/DPR/2, cv.height/DPR/2);
+document.getElementById('zoomsl').oninput=e=>{ const t=+e.target.value/1000, ns=ZMIN*Math.pow(ZMAX/ZMIN,t); zoomAt(ns/view.s, cv.width/DPR/2, cv.height/DPR/2); };
+document.getElementById('roomsel').onchange=e=>{ const v=e.target.value; setFocusRoom(v===''? null : ROOMS[floor][+v]); };
 document.getElementById('undobtn').onclick=undo;
 document.getElementById('redobtn').onclick=redo;
 document.getElementById('rotl').onclick=()=>rotateSel(-90);
@@ -811,6 +893,154 @@ document.getElementById('i-angle').oninput=e=>{ const s=selected(); if(!s) retur
 document.getElementById('i-angle').onchange=()=>commit();
 document.getElementById('dupbtn').onclick=duplicateSel;
 document.getElementById('delbtn').onclick=deleteSel;
+
+/* ---------- reading dimensions out of listing text ---------- */
+const FRAC={'¼':.25,'½':.5,'¾':.75,'⅓':1/3,'⅔':2/3,'⅛':.125,'⅜':.375,'⅝':.625,'⅞':.875};
+const NUM='(\\d+(?:\\.\\d+)?(?:\\s*-?\\s*\\d+\\/\\d+)?)';
+const UNIT='("|\\\'|cm|mm)';
+function normText(t){
+  return String(t)
+    .replace(/[\u2032\u2019\u2018]/g,"'").replace(/[\u2033\u201c\u201d]|''/g,'"')
+    .replace(/(\d)\s*([¼½¾⅓⅔⅛⅜⅝⅞])/g,(m,a,f)=>String(+a+FRAC[f]))
+    .replace(/[¼½¾⅓⅔⅛⅜⅝⅞]/g,f=>String(FRAC[f]))
+    .replace(/(\d+)'\s*(\d{1,2}(?:\.\d+)?)"/g,(m,a,b)=>String(+a + (+b)/12)+"'")   // 7'6" -> 7.5'
+    .replace(/(\d)\s*(?:inches|inch|in)\b\.?/gi,'$1"')
+    .replace(/(\d)\s*(?:feet|foot|ft)\b\.?/gi,"$1'")
+    .replace(/(\d)\s*(?:centimeters|centimetres)\b/gi,'$1cm')
+    .replace(/(\d)\s*(?:millimeters|millimetres)\b/gi,'$1mm')
+    .replace(/[ \t]+/g,' ');
+}
+function toNum(s){
+  s=s.trim(); const m=s.match(/^(\d+(?:\.\d+)?)\s*-?\s*(\d+)\/(\d+)$/);
+  if(m) return +m[1] + (+m[2])/(+m[3]);
+  const f=s.match(/^(\d+)\/(\d+)$/); if(f) return (+f[1])/(+f[2]);
+  return +s;
+}
+function toFeet(v,unit,fallback){
+  unit=unit||fallback||'"';
+  if(unit==='"') return v/12; if(unit==="'") return v; if(unit==='cm') return v/30.48; if(unit==='mm') return v/304.8;
+  return v/12;
+}
+const EXCL=/\b(seat|arm|leg|legs|back|inside|interior|inner|drawer|cushion|clearance|under|headboard|footboard|shelf|shelves|package|packaged|packaging|shipping|carton|box|weight|weighs|mattress|screen|opening|door|thickness|pillow|slat|apron|bezel|stand|base|leaf|extension|extended)\b/i;
+// the words that describe this number: back to the previous line break, digit or quote
+function segBefore(t,i){ return t.slice(Math.max(0,i-60), i).split(/[\n\d"']/).pop(); }
+function parseDims(raw){
+  const t=normText(raw);
+  const out={w:null,d:null,h:null,l:null, src:[], assumed:false};
+  const key={width:'w',diameter:'w',diam:'w',dia:'w',depth:'d',length:'l',height:'h',wide:'w',deep:'d',long:'l',high:'h',tall:'h',w:'w',d:'d',l:'l',h:'h'};
+  function put(k,v,unit,ctx,pri){
+    if(!(v>0)) return; const ft=toFeet(v,unit,null);
+    if(ft>60 || ft<0.2) return;              // not a piece of furniture
+    const cur=out[k];
+    if(!cur || pri>cur.pri){ out[k]={ft,pri,ctx:ctx.trim()}; }
+  }
+  // 1) "Overall Width: 84"" / "Width - Side to Side: 84''" / "Depth 38 5/8 ""
+  const reLab=new RegExp('\\b(overall\\s+|product\\s+|total\\s+|assembled\\s+)?(width|depth|length|height|diameter|diam|dia|wide|deep|long|high|tall)\\b[^0-9\\n,;]{0,45}?'+NUM+'\\s*'+UNIT+'?','gi');
+  let m;
+  while((m=reLab.exec(t))){
+    if(EXCL.test(segBefore(t,m.index))) continue;
+    const pri = m[1]? 3 : 2;
+    put(key[m[2].toLowerCase()], toNum(m[3]), m[4], t.slice(Math.max(0,m.index-30), m.index+m[0].length), pri);
+  }
+  // 2) "84"W x 38"D x 34"H" and "W 84" x D 38""
+  const reSuf=new RegExp(NUM+'\\s*'+UNIT+'?\\s*\\(?\\b([WDHL])(?:idth|epth|eight|ength)?\\b\\)?\\.?','gi');
+  while((m=reSuf.exec(t))){
+    if(EXCL.test(segBefore(t,m.index))) continue;
+    put(key[m[3].toLowerCase()], toNum(m[1]), m[2], t.slice(Math.max(0,m.index-30), m.index+m[0].length), 1);
+  }
+  // "80.5" wide, 87" long"
+  const reAdj=new RegExp(NUM+'\\s*'+UNIT+'?\\s*(wide|deep|long|high|tall)\\b','gi');
+  while((m=reAdj.exec(t))){
+    if(EXCL.test(segBefore(t,m.index))) continue;
+    put(key[m[3].toLowerCase()], toNum(m[1]), m[2], t.slice(Math.max(0,m.index-30), m.index+m[0].length), 2);
+  }
+  const rePre=new RegExp('\\b([WDHL])\\s*[:=]?\\s*'+NUM+'\\s*'+UNIT+'?(?![\\w\\/])','g');
+  while((m=rePre.exec(t))){
+    if(EXCL.test(segBefore(t,m.index))) continue;
+    put(key[m[1].toLowerCase()], toNum(m[2]), m[3], t.slice(Math.max(0,m.index-30), m.index+m[0].length), 1);
+  }
+  // fill in a unit-less labeled value from any unit used nearby
+  // 3) unlabeled "84" x 38" x 34"" or "8' x 10'" or "213 x 97 x 86 cm" — order assumed W x D (x H)
+  if(!(out.w && (out.d||out.l))){
+    const reTrip=new RegExp(NUM+'\\s*'+UNIT+'?\\s*(?:x|×|by)\\s*'+NUM+'\\s*'+UNIT+'?(?:\\s*(?:x|×|by)\\s*'+NUM+'\\s*'+UNIT+'?)?','gi');
+    // an order given in the text, "(W x D x H)" or "H x W x D", decides which number is which
+    const ord=(t.match(/\b([WDHL])\s*(?:x|×)\s*([WDHL])(?:\s*(?:x|×)\s*([WDHL]))?\b/)||[]).slice(1).filter(Boolean).map(c=>key[c.toLowerCase()]);
+    while((m=reTrip.exec(t))){
+      if(EXCL.test(segBefore(t,m.index))) continue;
+      const units=[m[2],m[4],m[6]].filter(Boolean);
+      const nums=[toNum(m[1]),toNum(m[3]), m[5]!=null? toNum(m[5]) : null];
+      if(!units.length && nums.every(n=>n>15)) units.push('"');
+      if(!units.length && nums.filter(n=>n!=null).every(n=>n<=15)) units.push("'");
+      if(!units.length) continue;
+      const u=units[units.length-1];
+      const order = ord.length>=2 ? ord : ['w','d','h'];
+      const us=[m[2],m[4],m[6]];
+      nums.forEach((n,i)=>{ if(n!=null && order[i]) out[order[i]]={ft:toFeet(n,us[i],u),pri:0,ctx:m[0]}; });
+      out.assumed = ord.length<2; break;
+    }
+  }
+  if(!out.d && out.l) out.d=out.l;
+  const r={w: out.w? +out.w.ft.toFixed(3):null, d: out.d? +out.d.ft.toFixed(3):null, h: out.h? +out.h.ft.toFixed(3):null,
+           assumed: out.assumed, ctx:[out.w,out.d,out.h].filter(Boolean).map(o=>o.ctx)};
+  return r;
+}
+function cleanTitle(s){
+  if(!s) return '';
+  s=s.replace(/\s+/g,' ').trim();
+  s=s.replace(/\s*[|–—-]\s*(?:[A-Z][\w&'. ]{1,30})$/,'');   // " | West Elm", " - IKEA"
+  s=s.replace(/^(?:amazon\.com\s*:\s*)/i,'');
+  return s.slice(0,80);
+}
+
+function hostOf(u){ try{ return new URL(u).hostname.replace(/^www\./,''); }catch(e){ return u; } }
+async function fetchText(url, ms=25000){
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),ms);
+  try{ const r=await fetch(url,{signal:c.signal}); if(!r.ok) throw new Error('HTTP '+r.status); return await r.text(); }
+  finally{ clearTimeout(t); }
+}
+const BLOCKED=/access denied|access to this page|page not found|just a moment|captcha|are you a human|robot check|attention required|blocked|forbidden/i;
+// One public reader (r.jina.ai) fetches the page from its own servers, so stores
+// that block automated readers block it too; then the paste box is the way.
+async function fetchListing(url){
+  const t=await fetchText('https://r.jina.ai/'+url);
+  const title=(t.match(/^Title:\s*(.+)$/m)||[])[1]||'';
+  if(BLOCKED.test(title) || t.length<500) throw new Error(title||'empty page');
+  return {title, text:t, via:'r.jina.ai'};
+}
+function umsg(html, err){ const el=document.getElementById('u-msg'); el.innerHTML=html; el.className='msg'+(err?' err':''); }
+function applyImport(title, text, url, via){
+  const d=parseDims(text||'');
+  if(title && !document.getElementById('c-name').value) document.getElementById('c-name').value=cleanTitle(title);
+  if(d.w) document.getElementById('c-w').value=ftLabel(d.w);
+  if(d.d) document.getElementById('c-d').value=ftLabel(d.d);
+  if(d.h) document.getElementById('c-h').value=ftLabel(d.h);
+  pendingImport={url, h:d.h};
+  const where = url? `${via}'s copy of ${hostOf(url)}` : 'the pasted text';
+  if(d.w && d.d){
+    umsg(`Read from ${where}: <b>${ftLabel(d.w)} wide × ${ftLabel(d.d)} deep${d.h? ` × ${ftLabel(d.h)} high` : ''}</b>${d.assumed? '. The order W × D × H is assumed, so check it' : ''}. Compare with the page, fix anything, then add.`);
+  } else if(d.w || d.d || d.h){
+    umsg(`Only part of a size turned up in ${where} (${[d.w&&'width '+ftLabel(d.w), d.d&&'depth '+ftLabel(d.d), d.h&&'height '+ftLabel(d.h)].filter(Boolean).join(', ')}). Fill in the rest below, or paste the dimensions line.`, true);
+  } else {
+    umsg(`${url? 'Got the page from '+hostOf(url)+' but' : 'That text'} has no dimensions I can read. Paste the line that gives them (e.g. 84"W x 38"D x 34"H).`, true);
+    document.getElementById('u-pastewrap').open=true;
+  }
+}
+document.getElementById('u-go').onclick=async()=>{
+  let url=document.getElementById('u-url').value.trim(); if(!url) return;
+  if(!/^https?:\/\//i.test(url)) url='https://'+url;
+  const btn=document.getElementById('u-go'); btn.disabled=true; umsg(`Reading ${hostOf(url)}…`);
+  try{ const r=await fetchListing(url); applyImport(r.title, r.text, url, r.via); }
+  catch(e){ umsg(`Couldn't read ${hostOf(url)} — the store is blocking outside readers (${e.message.slice(0,80)}). Open the page yourself, select all, copy, and paste it below.`, true); document.getElementById('u-pastewrap').open=true; pendingImport={url}; }
+  finally{ btn.disabled=false; }
+};
+document.getElementById('u-parse').onclick=()=>{
+  const t=document.getElementById('u-paste').value; if(!t.trim()) return;
+  const url=(pendingImport&&pendingImport.url) || (document.getElementById('u-url').value.trim()||'');
+  const firstLine=t.split('\n').map(x=>x.trim()).find(x=>x.length>3 && x.length<90 && !/\d\s*(?:"|''|cm|in)/.test(x))||'';
+  applyImport(firstLine, t, url, 'paste');
+  if(url && pendingImport) pendingImport.url=url;
+};
+document.getElementById('u-url').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('u-go').click(); });
 
 /* export / import */
 function download(name, blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
@@ -857,7 +1087,7 @@ function renderTo(g, W, H, v){
 /* ---------------- boot ---------------- */
 load();
 for(const k in PLANS){ const im=new Image(); im.onload=()=>{ if(+k===floor) draw(); }; im.src=PLANS[k].file+AV; imgs[k]=im; loadMask(k); }
-buildPalette(); refreshList(); updateUndo();
+buildPalette(); refreshList(); updateUndo(); fillRoomSelect();
 document.querySelectorAll('#floortabs button').forEach(b=>b.classList.toggle('on',+b.dataset.f===floor));
 new ResizeObserver(resize).observe(stage);
 resize();
