@@ -710,12 +710,14 @@ function roomShape(room){
   // every wall each of five parallel rays meets, both ways along an axis
   const cands=(dir,perp)=>{ const all=[]; for(const o of [-2,-1,0,1,2]){ const sx=room.x+perp[0]*o, sy=room.y+perp[1]*o; if(isWall(sx,sy)) continue; all.push(...wallHits(sx,sy,dir[0],dir[1])); }
     return all.length? all.sort((p,q)=>p-q) : [12]; };
-  const pick=(neg,pos,target)=>{   // the pair of walls whose span best matches the printed size; else the nearest walls
-    if(target==null) return [neg[0],pos[0]];
+  const pick=(neg,pos,target)=>{   // nearest walls both ways, unless a farther pair is what the listing printed
+    const near=[neg[0],pos[0]];
+    if(target==null) return near;
     let best=null; for(const l of neg) for(const r of pos){ const e=Math.abs(l+r-target); if(!best || e<best[0]-1e-9 || (Math.abs(e-best[0])<1e-9 && l+r<best[1]+best[2])) best=[e,l,r]; }
-    let [l,r]=[best[1],best[2]];
-    if(best[0]>2){ // no wall pair spans the printed size (the room opens into another): hold the open side to it
-      if(l<=r) r=Math.max(0.5,target-l); else l=Math.max(0.5,target-r); }
+    if(best && best[0]<=1.0) return [best[1],best[2]];
+    let [l,r]=near;
+    if(l+r<target-2 && best && best[0]<=2.5) return [best[1],best[2]];   // nearest walls are a partition inside the room; the next pair fits the listing
+    if(l+r>target+1.5){ if(l<=r) r=Math.max(0.5,target-l); else l=Math.max(0.5,target-r); }   // one side is open to another room: hold it to the printed size
     return [l,r]; };
   const Lc=cands([-ux[0],-ux[1]],uy), Rc=cands(ux,uy), Uc=cands([-uy[0],-uy[1]],ux), Dc=cands(uy,ux);
   let tx=A, ty=B;
